@@ -2,8 +2,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 import graphlib
 
-import networkx as nx
-
 
 @dataclass
 class Connector:
@@ -33,7 +31,7 @@ class PositionalArgument:
 @dataclass
 class OptionalArgument:
     flag: str
-    values: list[str | Connector]
+    values: list[str | Connector] = field(default_factory=list)
 
     @property
     def inputs(self):
