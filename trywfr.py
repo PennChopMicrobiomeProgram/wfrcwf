@@ -57,13 +57,13 @@ print(registry["paired-fastq"])
 
 # step copy_1
 #   cp
-#   {input source toml}
-#   {output dest txt}
+#   { input source toml }
+#   { output dest txt }
 
 # step copy_2
 #   cp
-#   {input source txt}
-#   {output dest config}
+#   { input source txt }
+#   { output dest config }
 
 # workflow double_copy
 #   copy_1 dest -> copy_2 source
