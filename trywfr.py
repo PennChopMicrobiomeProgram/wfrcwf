@@ -25,14 +25,14 @@ c2 = Step("copy_2", "cp")
 c2.args.append(PositionalArgument(InputConnector("source", ".txt")))
 c2.args.append(PositionalArgument(OutputConnector("dest", ".config")))
 
-w = Workflow(c1)
+w = Workflow([c1, c2])
 print(list(w.inputs))
 print(list(w.outputs))
 
-w.add_step(c2, {"source": ("copy_1", "dest")})
+w.connect("copy_1", "dest", "copy_2", "source")
 print("Connections in:", w.connections_in)
 print("Inputs:", list(w.inputs))
-print("Connections out:", w.connections_out)      
+print("Connections out:", w.connections_out)
 print("Outputs:", list(w.outputs))
 
 print(w.dag)

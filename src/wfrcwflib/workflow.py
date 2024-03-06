@@ -55,41 +55,42 @@ class Step:
     def inputs(self):
         for arg in self.args:
             for input in arg.inputs:
-                yield input.name
+                yield input
 
     @property
     def outputs(self):
         for arg in self.args:
             for output in arg.outputs:
-                yield output.name
+                yield output
+
 
 class Workflow:
-    def __init__(self, step):
-        self.steps = {}
+    def __init__(self, available_steps):
+        self.available_steps = {step.name: step for step in available_steps}
+        self._active_steps = set()
+        # Reverse directed graph
+        # (step, input) => (step, output)
         self.connections_in = {}
-        # The first step in the workflow has no connections
-        self.add_step(step, {})
 
-    def add_step(self, step, connections):
-        """Add a step to the workflow
+    def connect(self, from_step, from_output, to_step, to_input):
+        self._add_step(from_step)
+        self._add_step(to_step)
+        self.connections_in[(to_step, to_input)] = (from_step, from_output)
 
-        Inputs of the step to be added are connected to outputs of a
-        previous step.  The input of a step can only be connected to
-        one output. As a result, the data model for `connections` is a
-        dict: input => (prev_step, output).
-        """
-        self.steps[step.name] = step
-        for input in step.inputs:
-            self.connections_in[(step.name, input)] = None
-        for input, (prev_step, output) in connections.items():
-            self.connections_in[(step.name, input)] = (prev_step, output)
+    def _add_step(self, step_name):
+        if step_name not in self._active_steps:
+            step = self.available_steps[step_name]
+            for input in step.inputs:
+                self.connections_in[(step.name, input.name)] = None
+            self._active_steps.add(step.name)
 
     @property
     def connections_out(self):
         res = {}
-        for step in self.steps.values():
+        for step_name in self._active_steps:
+            step = self.available_steps[step_name]
             for output in step.outputs:
-                res[(step.name, output)] = []
+                res[(step.name, output.name)] = []
         for k, v in self.connections_in.items():
             if v is not None:
                 res[v].append(k)
@@ -109,7 +110,7 @@ class Workflow:
 
     @property
     def dag(self):
-        graph = {step: set() for step in self.steps.keys()}
+        graph = {step: set() for step in self._active_steps}
         for dest, src in self.connections_in.items():
             print("Making DAG:", dest, src)
             if src is not None:
