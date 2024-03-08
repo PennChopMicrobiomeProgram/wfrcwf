@@ -1,6 +1,7 @@
 from wfrcwflib.workflow import (
     Step, PositionalArgument, OptionalArgument,
-    InputConnector, OutputConnector
+    InputConnector, OutputConnector,
+    UnresolvedWorkflow,
 )
 
 class ParseError(Exception):
@@ -87,8 +88,28 @@ def parse_step(lines):
         obj.args.append(arg)
     return obj
 
+def parse_workflow(lines):
+    lines = iter(lines)
+
+    name, name_rest = next_token(next(lines))
+    if name_rest:
+        raise ParseError("name must appear by itself")
+
+    obj = UnresolvedWorkflow(name)
+    for line in lines:
+        from_step, rest = next_token(line)
+        from_output, rest = next_token(rest)
+        arrow, rest = next_token(rest)
+        to_step, rest = next_token(rest)
+        to_input, rest = next_token(rest)
+        if rest:
+            raise ParseError("too many tokens in connection")
+        obj.connections.append((from_step, from_output, to_step, to_input))
+    return obj
+
 subparsers = {
     "step": parse_step,
+    "workflow": parse_workflow,
 }
 
 def parse_paragraph(lines):
@@ -97,7 +118,7 @@ def parse_paragraph(lines):
     if not cmd in subparsers:
         raise ParseError("invalid keyword")
     subparser = subparsers[cmd]
-    # Remove the command from the first line to avoid dealing with it later
+    # Remove the keyword from the first line to avoid dealing with it later
     lines[0] = rest
     obj = subparser(lines)
     return obj

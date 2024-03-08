@@ -5,13 +5,14 @@ from wfrcwflib.parse import (
     split_paragraphs, next_token,
     parse_connector, parse_argument_value,
     parse_positional_argument, parse_optional_argument,
-    parse_step, parse_paragraph, parse,
+    parse_step, parse_workflow,
+    parse_paragraph, parse,
     strip_comment, preprocess,
 )
 from wfrcwflib.workflow import (
     InputConnector, OutputConnector,
     PositionalArgument, OptionalArgument,
-    Step,
+    Step, UnresolvedWorkflow,
 )
 
 def test_next_token():
@@ -49,7 +50,7 @@ def test_parse_optional_argument():
         OptionalArgument("--hello", ["there", "c"])
 
 blast_step = Step("blastn-mydb", "blastn", [
-    OptionalArgument("-query", [InputConnector("seqs", "fasta")]),
+    OptionalArgument("-query", [InputConnector("query-seqs", "fasta")]),
     OptionalArgument("-db", ["myblastdb"]),
     OptionalArgument("-out", [OutputConnector("result", "tsv")]),
 ])
@@ -58,17 +59,28 @@ def test_parse_step():
     p = [
         "blastn-mydb",
         "blastn",
-        "-query { input seqs fasta }",
+        "-query { input query-seqs fasta }",
         "-db myblastdb",
         "-out { output result tsv }",
     ]
     assert parse_step(p) == blast_step
 
+filter_workflow = UnresolvedWorkflow("filter-and-blastn", [
+    ("filter-seqs", "filtered-seqs", "blastn-mydb", "query-seqs"),
+])
+
+def test_parse_workflow():
+    p = [
+        "filter-and-blastn",
+        "filter-seqs filtered-seqs --> blastn-mydb query-seqs",
+    ]
+    assert parse_workflow(p) == filter_workflow
+
 def test_parse_paragraph():
     p = [
         "step blastn-mydb",
         "blastn",
-        "-query { input seqs fasta }",
+        "-query { input query-seqs fasta }",
         "-db myblastdb",
         "-out { output result tsv }",
     ]

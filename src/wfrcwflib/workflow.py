@@ -63,13 +63,25 @@ class Step:
             for output in arg.outputs:
                 yield output
 
+@dataclass
+class UnresolvedWorkflow:
+    name: str
+    connections: list[tuple[str, str, str, str]] = field(default_factory=list)
+
+    def resolve(self, registry):
+        w = Workflow(self.name, registry)
+        for args in self.connections:
+            w.connect(*args)
+        return w
+
 
 class Workflow:
-    def __init__(self, available_steps):
-        self.available_steps = {step.name: step for step in available_steps}
+    def __init__(self, name, registry):
+        self.name = name
+        self.registry = registry
         self._active_steps = set()
         # Reverse directed graph
-        # (step, input) => (step, output)
+        # (step2, input) => (step1, output)
         self.connections_in = {}
 
     def connect(self, from_step, from_output, to_step, to_input):
@@ -79,7 +91,7 @@ class Workflow:
 
     def _add_step(self, step_name):
         if step_name not in self._active_steps:
-            step = self.available_steps[step_name]
+            step = self.registry[step_name]
             for input in step.inputs:
                 self.connections_in[(step.name, input.name)] = None
             self._active_steps.add(step.name)
@@ -88,7 +100,7 @@ class Workflow:
     def connections_out(self):
         res = {}
         for step_name in self._active_steps:
-            step = self.available_steps[step_name]
+            step = self.registry[step_name]
             for output in step.outputs:
                 res[(step.name, output.name)] = []
         for k, v in self.connections_in.items():
