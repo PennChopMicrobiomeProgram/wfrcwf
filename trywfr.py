@@ -68,6 +68,14 @@ print(registry["paired-fastq"])
 # workflow double_copy
 #   copy_1 dest -> copy_2 source
 
+# step blastn_genes
+#   blastn
+#   -db {input db blastndb}
+#   -in {input seqs fasta}
+#   -evalue 1e-5
+
+# configure blastn_genes
+#   -evalue 1e-3
 
 #try:
 #    x2.run()
