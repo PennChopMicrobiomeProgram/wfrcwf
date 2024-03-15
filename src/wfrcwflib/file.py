@@ -14,6 +14,7 @@ class SuffixedFiletype(Filetype):
         fps = list(dir.iterdir())
         for fp in fps:
             if fp.endswith(self.suffix):
+                yield fp
                 
 
 @dataclass
