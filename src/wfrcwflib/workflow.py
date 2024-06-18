@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Optional
 import graphlib
@@ -19,12 +20,12 @@ class PositionalArgument:
     value: str | Connector
 
     @property
-    def inputs(self):
+    def inputs(self) -> Iterator[InputConnector]:
         if isinstance(self.value, InputConnector):
             yield self.value
 
     @property
-    def outputs(self):
+    def outputs(self) -> Iterator[OutputConnector]:
         if isinstance(self.value, OutputConnector):
             yield self.value
 
@@ -34,13 +35,13 @@ class OptionalArgument:
     values: list[str | Connector] = field(default_factory=list)
 
     @property
-    def inputs(self):
+    def inputs(self) -> Iterator[InputConnector]:
         for value in self.values:
             if isinstance(value, InputConnector):
                 yield value
 
     @property
-    def outputs(self):
+    def outputs(self) -> Iterator[OutputConnector]:
         for value in self.values:
             if isinstance(value, OutputConnector):
                 yield value
@@ -52,44 +53,39 @@ class Step:
     args: list[PositionalArgument | OptionalArgument] = field(default_factory=list)
 
     @property
-    def inputs(self):
+    def inputs(self) -> Iterator[InputConnector]:
         for arg in self.args:
             for input in arg.inputs:
                 yield input
 
     @property
-    def outputs(self):
+    def outputs(self) -> Iterator[OutputConnector]:
         for arg in self.args:
             for output in arg.outputs:
                 yield output
 
-@dataclass
-class UnresolvedWorkflow:
-    name: str
-    connections: list[tuple[str, str, str, str]] = field(default_factory=list)
 
-    def resolve(self, registry):
-        w = Workflow(self.name, registry)
-        for args in self.connections:
-            w.connect(*args)
-        return w
+class StepRegistry(dict[str, Step]):
+    def register(self, step: Step):
+        self[step.name] = step
 
 
 class Workflow:
-    def __init__(self, name, registry):
+    def __init__(self, name: str, registry: StepRegistry):
         self.name = name
         self.registry = registry
-        self._active_steps = set()
+        self._active_steps: set[Step] = set()
         # Reverse directed graph
         # (step2, input) => (step1, output)
-        self.connections_in = {}
+        # Would it be better to carry through Steps and Connectors here instead of just the names (as strs)?
+        self.connections_in: dict[tuple[str, str], tuple[str, str]] = {}
 
-    def connect(self, from_step, from_output, to_step, to_input):
+    def connect(self, from_step: str, from_output: str, to_step: str, to_input: str):
         self._add_step(from_step)
         self._add_step(to_step)
         self.connections_in[(to_step, to_input)] = (from_step, from_output)
 
-    def _add_step(self, step_name):
+    def _add_step(self, step_name: str):
         if step_name not in self._active_steps:
             step = self.registry[step_name]
             for input in step.inputs:
@@ -97,7 +93,7 @@ class Workflow:
             self._active_steps.add(step.name)
 
     @property
-    def connections_out(self):
+    def connections_out(self) -> dict[tuple[str, str], list[str]]:
         res = {}
         for step_name in self._active_steps:
             step = self.registry[step_name]
@@ -109,19 +105,19 @@ class Workflow:
         return res
 
     @property
-    def inputs(self):
+    def inputs(self) -> Iterator[tuple[str, str]]:
         for k, v in self.connections_in.items():
             if v is None:
                 yield k
 
     @property
-    def outputs(self):
+    def outputs(self) -> Iterator[tuple[str, str]]:
         for k, vs in self.connections_out.items():
             if not vs:
                 yield k
 
     @property
-    def dag(self):
+    def dag(self) -> dict[Step, set[str]]:
         graph = {step: set() for step in self._active_steps}
         for dest, src in self.connections_in.items():
             print("Making DAG:", dest, src)
@@ -131,15 +127,28 @@ class Workflow:
                 graph[dest_step].add(src_step)
         return graph
 
+    # TODO: Figure out type of this output
     @property
     def order(self):
         ts = graphlib.TopologicalSorter(self.dag)
         return list(ts.static_order())
 
     @property
-    def edges(self):
+    def edges(self) -> Iterator[tuple[str, str]]:
         for k, v in self.connections_in.items():
             if v is not None:
                 dest_step, _ = k
                 src_step, _ = v
                 yield src_step, dest_step
+
+
+@dataclass
+class UnresolvedWorkflow:
+    name: str
+    connections: list[tuple[str, str, str, str]] = field(default_factory=list)
+
+    def resolve(self, registry: StepRegistry) -> Workflow:
+        w = Workflow(self.name, registry)
+        for args in self.connections:
+            w.connect(*args)
+        return w

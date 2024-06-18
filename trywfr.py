@@ -1,5 +1,6 @@
+from pathlib import Path
 from wfrcwflib.workflow import (
-    Workflow, Step,
+    Workflow, Step, StepRegistry,
     PositionalArgument, OptionalArgument,
     InputConnector, OutputConnector,
     )
@@ -8,8 +9,7 @@ from wfrcwflib.file import (
     )
 
 x = Step("say hello", "echo")
-x.args.append(PositionalArgument("hello"))
-x.args.append(PositionalArgument("world"))
+x.args.append(PositionalArgument("\"hello world\""))
 print(x)
 
 x2 = Step("read_file", "cat")
@@ -25,7 +25,11 @@ c2 = Step("copy_2", "cp")
 c2.args.append(PositionalArgument(InputConnector("source", ".txt")))
 c2.args.append(PositionalArgument(OutputConnector("dest", ".config")))
 
-w = Workflow([c1, c2])
+r = StepRegistry()
+r.register(c1)
+r.register(c2)
+
+w = Workflow("copy workflow", r)
 print(list(w.inputs))
 print(list(w.outputs))
 
@@ -48,9 +52,14 @@ paired_fastq_filetype = SuffixedFiletypeBundle("paired-fastq", (fastq_r1, fastq_
 registry = FiletypeRegistry()
 registry.register(csv_filetype)
 registry.register(fasta_filetype)
+registry.register(fastq_r1)
 registry.register(paired_fastq_filetype)
 print(registry["fasta"])
 print(registry["paired-fastq"])
+
+print(registry["fasta"].gather(Path("./data/")))
+print(registry["r1"].gather(Path("./data/")))
+print(registry["paired-fastq"].gather(Path("./data/")))
 
 #input_fp = Path("pyproject.toml")
 #p = Project(w, {}, {("copy_1", "source"): input_fp}, "myoutput")

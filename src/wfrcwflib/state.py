@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import Optional, Callable
 
@@ -10,8 +11,8 @@ class KeywordState(State):
     transitions: list[State]
     terminal: bool = False
     
-    def check(self, tok):
-        tok == self.name
+    def check(self, tok: str) -> bool:
+        return tok == self.name
 
 @dataclass
 class RegexState(State):
@@ -20,8 +21,8 @@ class RegexState(State):
     transitions: list[State]
     terminal: bool = False
 
-    def check(self, tok):
-        re.match(self.pattern, tok)
+    def check(self, tok: str) -> bool:
+        return bool(re.match(self.pattern, tok))
 
 
 s_step_option_value = RegexState("value", ".+", [s_step_option_value, s_step_argument_sep])
@@ -35,14 +36,13 @@ s_init = KeywordState("init", [s_step])
 
 class WFSM:
     def __init__(self):
-        state = s_init
+        state: KeywordState = s_init
 
-    def consume(self, tok):
+    def consume(self, tok: str):
         next = self.next_state(tok)
         
-    def next_state(self, tok):
+    def next_state(self, tok: str) -> Optional[State]:
         for s in self.state.transitions:
             if s.check(tok):
                 return s
-        return None
             
