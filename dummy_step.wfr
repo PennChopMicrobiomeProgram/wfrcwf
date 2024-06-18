@@ -1,0 +1,5 @@
+step copy_1
+   cp
+   -v
+   { input source toml }
+   { output dest txt }

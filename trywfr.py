@@ -7,7 +7,9 @@ from wfrcwflib.workflow import (
 from wfrcwflib.file import (
     SuffixedFiletype, SuffixedFiletypeBundle, FiletypeRegistry,
     )
+from wfrcwflib.parse import parse, parse_workflow, parse_step
 
+print("\nSTEPS\n")
 x = Step("say hello", "echo")
 x.args.append(PositionalArgument("\"hello world\""))
 print(x)
@@ -29,6 +31,7 @@ r = StepRegistry()
 r.register(c1)
 r.register(c2)
 
+print("\nWORKFLOWS\n")
 w = Workflow("copy workflow", r)
 print(list(w.inputs))
 print(list(w.outputs))
@@ -42,7 +45,7 @@ print("Outputs:", list(w.outputs))
 print(w.dag)
 print(list(w.edges))
 
-
+print("\nFILETYPES\n")
 csv_filetype = SuffixedFiletype("csv", ".csv")
 fasta_filetype = SuffixedFiletype("fasta", ".fasta", [".fna", ".fa"])
 fastq_r1 = SuffixedFiletype("r1", "_R1.fastq")
@@ -60,6 +63,17 @@ print(registry["paired-fastq"])
 print(registry["fasta"].gather(Path("./data/")))
 print(registry["r1"].gather(Path("./data/")))
 print(registry["paired-fastq"].gather(Path("./data/")))
+
+print("\nPARSING\n")
+with open("dummy_step.wfr") as f:
+    copy_step_1 = parse(f.readlines())
+print(list(copy_step_1))
+with open("dummy_workflow_only.wfr") as f:
+    copy_workflow1 = parse(f.readlines())
+print(list(copy_workflow1))
+with open("dummy_workflow.wfr") as f:
+    copy_workflow2 = parse(f.readlines())
+print(list(copy_workflow2))
 
 #input_fp = Path("pyproject.toml")
 #p = Project(w, {}, {("copy_1", "source"): input_fp}, "myoutput")

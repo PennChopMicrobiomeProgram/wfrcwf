@@ -1,0 +1,2 @@
+workflow double_copy
+   copy_1 dest -> copy_2 source

@@ -4,6 +4,12 @@ from typing import Optional
 import graphlib
 
 
+class WfrObject:
+    """A high level parsable object in the WFRCWF language.
+    """
+    pass
+
+
 @dataclass
 class Connector:
     name: str
@@ -47,7 +53,7 @@ class OptionalArgument:
                 yield value
 
 @dataclass
-class Step:
+class Step(WfrObject):
     name: str
     prog: str
     args: list[PositionalArgument | OptionalArgument] = field(default_factory=list)
@@ -127,9 +133,8 @@ class Workflow:
                 graph[dest_step].add(src_step)
         return graph
 
-    # TODO: Figure out type of this output
     @property
-    def order(self):
+    def order(self) -> list[Step | str]:
         ts = graphlib.TopologicalSorter(self.dag)
         return list(ts.static_order())
 
@@ -143,7 +148,7 @@ class Workflow:
 
 
 @dataclass
-class UnresolvedWorkflow:
+class UnresolvedWorkflow(WfrObject):
     name: str
     connections: list[tuple[str, str, str, str]] = field(default_factory=list)
 

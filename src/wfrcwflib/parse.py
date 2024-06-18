@@ -1,13 +1,14 @@
+from collections.abc import Iterator
 from wfrcwflib.workflow import (
-    Step, PositionalArgument, OptionalArgument,
+    Connector, Step, PositionalArgument, OptionalArgument,
     InputConnector, OutputConnector,
-    UnresolvedWorkflow,
+    UnresolvedWorkflow, WfrObject,
 )
 
 class ParseError(Exception):
     pass
 
-def next_token(line):
+def next_token(line: str) -> tuple[str, ...]:
     toks = line.split(maxsplit=1)
     match len(toks):
         case 0:
@@ -22,14 +23,17 @@ connectors = {
     "output": OutputConnector,
 }
 
-def parse_connector(line):
+start_connector_string = "{"
+end_connector_string = "}"
+
+def parse_connector(line: str) -> tuple[Connector, str]:
     connector_open, rest = next_token(line)
-    if not connector_open == "{":
-        raise ParseError("connector must start with '{ '")
+    if not connector_open == start_connector_string:
+        raise ParseError(f"connector must start with '{start_connector_string} ': {connector_open}")
 
     cmd, rest = next_token(rest)
     if not cmd in connectors:
-        raise ParseError("invalid connector type")
+        raise ParseError(f"invalid connector type: {cmd}")
     cls = connectors[cmd]
 
     name, rest = next_token(rest)
@@ -41,43 +45,43 @@ def parse_connector(line):
         raise ParseError("connector ext cannot be empty")
 
     connector_close, rest = next_token(rest)
-    if not connector_close == "}":
-        raise ParseError("connector must end with ' }'")
+    if not connector_close == end_connector_string:
+        raise ParseError(f"connector must end with ' {end_connector_string}': {connector_close}")
 
     return cls(name, ext), rest
 
-def parse_argument_value(line):
+def parse_argument_value(line: str) -> tuple[str | Connector, ...]:
     if line.startswith("{"):
         return parse_connector(line)
     else:
         return next_token(line)
 
-def parse_positional_argument(line):
+def parse_positional_argument(line: str) -> PositionalArgument:
     value, rest = parse_argument_value(line)
     if rest:
-        raise ParseError("only one positional argument per line")
+        raise ParseError(f"only one positional argument per line: {rest}")
     return PositionalArgument(value)
 
-def parse_optional_argument(line):
+def parse_optional_argument(line: str) -> OptionalArgument:
     flag, rest = next_token(line)
     if not flag.startswith("-"):
-        raise ParseError("optional argument flags must start with '-'")
+        raise ParseError(f"optional argument flags must start with '-': {flag}")
     obj = OptionalArgument(flag)
     while rest:
         value, rest = parse_argument_value(rest)
         obj.values.append(value)
     return obj
 
-def parse_step(lines):
+def parse_step(lines: Iterator[str]) -> Step:
     lines = iter(lines)
 
     name, name_rest = next_token(next(lines))
     if name_rest:
-        raise ParseError("name must appear by itself")
-
+        raise ParseError(f"name must appear by itself: {name_rest}")
+    
     prog, prog_rest = next_token(next(lines))
     if prog_rest:
-        raise ParseError("prog must appear by itself")
+        raise ParseError(f"prog must appear by itself: {prog_rest}")
 
     obj = Step(name, prog)
     for line in lines:
@@ -88,12 +92,12 @@ def parse_step(lines):
         obj.args.append(arg)
     return obj
 
-def parse_workflow(lines):
+def parse_workflow(lines: Iterator[str]) -> UnresolvedWorkflow:
     lines = iter(lines)
 
     name, name_rest = next_token(next(lines))
     if name_rest:
-        raise ParseError("name must appear by itself")
+        raise ParseError(f"name must appear by itself: {name_rest}")
 
     obj = UnresolvedWorkflow(name)
     for line in lines:
@@ -103,7 +107,7 @@ def parse_workflow(lines):
         to_step, rest = next_token(rest)
         to_input, rest = next_token(rest)
         if rest:
-            raise ParseError("too many tokens in connection")
+            raise ParseError(f"too many tokens in connection: {rest}")
         obj.connections.append((from_step, from_output, to_step, to_input))
     return obj
 
@@ -112,21 +116,21 @@ subparsers = {
     "workflow": parse_workflow,
 }
 
-def parse_paragraph(lines):
+def parse_paragraph(lines: Iterator[str]) -> WfrObject:
     lines = list(lines)
     cmd, rest = next_token(lines[0])
     if not cmd in subparsers:
-        raise ParseError("invalid keyword")
+        raise ParseError(f"invalid keyword: {cmd}")
     subparser = subparsers[cmd]
     # Remove the keyword from the first line to avoid dealing with it later
     lines[0] = rest
     obj = subparser(lines)
     return obj
 
-def split_paragraphs(lines):
+def split_paragraphs(lines: Iterator[str]) -> Iterator[list[str]]:
     paragraph = []
     for line in lines:
-        if line:
+        if line.strip():
             paragraph.append(line)
         elif paragraph:
             yield paragraph
@@ -134,20 +138,21 @@ def split_paragraphs(lines):
     if paragraph:
         yield paragraph
 
-def parse(lines):
+def parse(lines: Iterator[str]) -> Iterator[WfrObject]:
     paragraphs = split_paragraphs(lines)
     for p in paragraphs:
-        obj = parse_paragraph(p)
+        obj = parse_paragraph(preprocess(p))
         yield obj
 
-def strip_comment(line):
+def strip_comment(line: str) -> str:
     code, _, comment = line.partition("#")
     return code
 
-def strip_whitespace(line):
+def strip_whitespace(line: str) -> str:
     return line.strip()
 
-def preprocess(lines):
+def preprocess(lines: Iterator[str]) -> Iterator[str]:
+    # Do we want to verify proper indentation before removing it all?
     for line in lines:
         line = strip_comment(line)
         line = strip_whitespace(line)
