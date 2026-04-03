@@ -32,10 +32,6 @@ def parse_connector(line):
         raise ParseError("invalid connector type")
     cls = connectors[cmd]
 
-    name, rest = next_token(rest)
-    if not name:
-        raise ParseError("connector name cannot be empty")
-
     ext, rest = next_token(rest)
     if not ext:
         raise ParseError("connector ext cannot be empty")
@@ -44,7 +40,7 @@ def parse_connector(line):
     if not connector_close == "}":
         raise ParseError("connector must end with ' }'")
 
-    return cls(name, ext), rest
+    return cls(ext), rest
 
 def parse_argument_value(line):
     if line.startswith("{"):
